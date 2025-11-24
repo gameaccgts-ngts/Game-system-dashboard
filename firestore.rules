@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile, admins can read all users
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+
+      // Only allow creating during signup (handled by auth context)
+      allow create: if isAuthenticated() && isOwner(userId);
+
+      // Users can update their own profile, admins can update anyone
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+
+    // Systems collection
+    match /systems/{systemId} {
+      // Anyone authenticated can read systems
+      allow read: if isAuthenticated();
+
+      // Only admins can create, update, or delete systems
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Requests collection
+    match /requests/{requestId} {
+      // Users can read their own requests, admins can read all
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Users can create requests with their own userId
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid;
+
+      // Users can update their own requests (for return requests)
+      // Admins can update any request
+      allow update: if isAuthenticated() &&
+                       (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Only admins can delete requests
+      allow delete: if isAdmin();
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Only admins can read notifications
+      allow read: if isAdmin();
+
+      // Users can create notifications (for return requests)
+      allow create: if isAuthenticated();
+
+      // Only admins can update notifications (mark as read)
+      allow update: if isAdmin();
+
+      // Only admins can delete notifications
+      allow delete: if isAdmin();
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
