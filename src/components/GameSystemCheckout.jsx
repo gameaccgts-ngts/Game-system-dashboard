@@ -1273,7 +1273,9 @@ export default function GameSystemCheckout() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serial Number</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Storage</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Controllers</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase" title="Controllers">
+                  <Gamepad2 size={14} className="inline" />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cables</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">System Reset</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Maint.</th>
