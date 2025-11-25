@@ -1178,6 +1178,23 @@ export default function GameSystemCheckout() {
   }
 
   function renderInventoryManagement() {
+    // Calculate maintenance alerts
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const upcomingResets = systems.filter(s => {
+      if (!s.systemReset) return false;
+      const resetDate = new Date(s.systemReset);
+      return resetDate <= thirtyDaysFromNow && resetDate >= today;
+    });
+
+    const overdueMaintenance = systems.filter(s => {
+      if (!s.lastMaintenance) return false;
+      const maintDate = new Date(s.lastMaintenance);
+      return maintDate <= sixtyDaysAgo;
+    });
+
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -1203,12 +1220,53 @@ export default function GameSystemCheckout() {
           </button>
         </div>
 
+        {/* Maintenance Alerts */}
+        {(upcomingResets.length > 0 || overdueMaintenance.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {upcomingResets.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                <h4 className="font-semibold text-yellow-800 flex items-center gap-2">
+                  <AlertTriangle size={18} />
+                  Upcoming System Resets ({upcomingResets.length})
+                </h4>
+                <p className="text-xs text-yellow-700 mt-1 mb-2">Systems requiring data reset within 30 days</p>
+                <div className="mt-2 space-y-1">
+                  {upcomingResets.map(s => (
+                    <div key={s.id} className="flex justify-between items-center text-sm">
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-yellow-700">{new Date(s.systemReset).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {overdueMaintenance.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <h4 className="font-semibold text-red-800 flex items-center gap-2">
+                  <AlertTriangle size={18} />
+                  Overdue Maintenance ({overdueMaintenance.length})
+                </h4>
+                <p className="text-xs text-red-700 mt-1 mb-2">Systems not maintained in 60+ days</p>
+                <div className="mt-2 space-y-1">
+                  {overdueMaintenance.map(s => (
+                    <div key={s.id} className="flex justify-between items-center text-sm">
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-red-700">Last: {new Date(s.lastMaintenance).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Edit/Add System Modal */}
         {editingSystem && renderSystemModal()}
 
         {/* Systems Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+          <table className="w-full min-w-[1200px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">System</th>
@@ -1217,6 +1275,8 @@ export default function GameSystemCheckout() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Storage</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Controllers</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cables</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">System Reset</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Maint.</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
@@ -1224,6 +1284,14 @@ export default function GameSystemCheckout() {
             <tbody className="divide-y divide-gray-200">
               {systems.map((system) => {
                 const SystemIcon = system.type.includes('Quest') || system.type.includes('Oculus') ? Monitor : Gamepad2;
+
+                // Calculate maintenance status
+                const today = new Date();
+                const resetDate = system.systemReset ? new Date(system.systemReset) : null;
+                const maintDate = system.lastMaintenance ? new Date(system.lastMaintenance) : null;
+                const resetSoon = resetDate && resetDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000) && resetDate >= today;
+                const resetOverdue = resetDate && resetDate < today;
+                const maintOverdue = maintDate && maintDate <= new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000);
 
                 return (
                   <tr key={system.id} className={!system.available ? 'bg-gray-50' : ''}>
@@ -1244,6 +1312,27 @@ export default function GameSystemCheckout() {
                         {system.cables.usb && <span className="px-1.5 py-0.5 bg-gray-100 rounded">USB</span>}
                         {system.cables.power && <span className="px-1.5 py-0.5 bg-gray-100 rounded">PWR</span>}
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {resetDate ? (
+                        <span className={`${resetOverdue ? 'text-red-600 font-medium' : resetSoon ? 'text-yellow-600 font-medium' : ''}`}>
+                          {resetDate.toLocaleDateString()}
+                          {resetOverdue && <span className="ml-1 text-xs block">(Overdue!)</span>}
+                          {resetSoon && !resetOverdue && <span className="ml-1 text-xs block">(Soon)</span>}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Not set</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {maintDate ? (
+                        <span className={maintOverdue ? 'text-red-600 font-medium' : ''}>
+                          {maintDate.toLocaleDateString()}
+                          {maintOverdue && <span className="ml-1 text-xs block">(Due)</span>}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Not set</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -1381,6 +1470,30 @@ export default function GameSystemCheckout() {
                 onChange={(e) => setEditingSystem({...editingSystem, storageLocation: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 placeholder="e.g., Cabinet A-1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                System Reset Date
+                <span className="text-xs text-gray-500 block font-normal">For patient data removal</span>
+              </label>
+              <input
+                type="date"
+                value={editingSystem.systemReset || ''}
+                onChange={(e) => setEditingSystem({...editingSystem, systemReset: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Last Maintenance
+                <span className="text-xs text-gray-500 block font-normal">Service/inspection date</span>
+              </label>
+              <input
+                type="date"
+                value={editingSystem.lastMaintenance || ''}
+                onChange={(e) => setEditingSystem({...editingSystem, lastMaintenance: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
             <div className="col-span-2">
